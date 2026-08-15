@@ -1,11 +1,449 @@
 ---
-import Welcome from '../components/Welcome.astro';
 import Layout from '../layouts/Layout.astro';
 
-// Welcome to Astro! Wondering what to do next? Check out the Astro documentation at https://docs.astro.build
-// Don't want to use any of this? Delete everything in this file, the `assets`, `components`, and `layouts` directories, and start fresh.
+const options = [
+	{ flag: '--test-automation', desc: 'Designs and maintains end-to-end test suites.' },
+	{ flag: '--playwright', desc: 'Automation framework of choice.' },
+	{ flag: '--typescript', desc: 'Language used for all test code.' },
+	{ flag: '--ci-cd', desc: 'Integrates test suites into continuous integration pipelines.' },
+	{
+		flag: '--currently-learning',
+		desc: 'I use Neovim btw :), split-keyboard, arch-linux, craft-beer, bouldering.',
+	},
+	{ flag: '--masks', desc: 'Just likes masks. Smth in the works.' },
+];
 ---
 
 <Layout>
-	<Welcome />
+	<main>
+		<div class="terminal">
+			<div class="titlebar">
+				<span class="dot red"></span>
+				<span class="dot yellow"></span>
+				<span class="dot green"></span>
+				<span class="title">povilas.dronovas@arch: ~</span>
+			</div>
+			<div class="screen" id="screen">
+				<div id="history" role="log" aria-live="polite">
+					<p class="cmd">
+						<span class="prompt">povilas.dronovas@arch:~$</span> man povilas.dronovas
+					</p>
+
+					<div class="man" id="man-content">
+						<div class="man-header">
+							<span>POVILAS.DRONOVAS(1)</span><span>User Commands</span><span>POVILAS.DRONOVAS(1)</span>
+						</div>
+
+						<h2>NAME</h2>
+						<p class="indent">povilas.dronovas — QA Automation Engineer</p>
+
+						<h2>SYNOPSIS</h2>
+						<p class="indent synopsis">
+							<b>povilas.dronovas</b>
+							{options.map(({ flag }) => <span class="flag">[{flag}]</span>)}
+						</p>
+
+						<h2>DESCRIPTION</h2>
+						<p class="indent">
+							Povilas is a QA Automation Engineer specializing in end-to-end test
+							automation with <b>Playwright</b> and <b>TypeScript</b>. Currently at
+							Kilo Health, where he refactors legacy JavaScript projects and
+							integrates them into CI/CD pipelines.
+						</p>
+
+						<h2>OPTIONS</h2>
+						{options.map(({ flag, desc }) => (
+							<div class="option">
+								<p class="indent"><span class="flag">{flag}</span></p>
+								<p class="option-desc">{desc}</p>
+							</div>
+						))}
+
+						<h2>BUGS</h2>
+						<p class="indent">No known bugs. Report anomalies to the author.</p>
+
+						<h2>AUTHOR</h2>
+						<p class="indent">
+							Povilas &lt;<button type="button" class="reveal">click to reveal</button>&gt;
+						</p>
+					</div>
+
+					<p class="hint">Type 'help' for available commands.</p>
+				</div>
+
+				<p class="cmd input-line">
+					<span class="prompt">povilas.dronovas@arch:~$</span>
+					<input
+						id="cmd-input"
+						type="text"
+						autocomplete="off"
+						autocapitalize="off"
+						spellcheck="false"
+						aria-label="terminal command input"
+					/>
+				</p>
+			</div>
+		</div>
+	</main>
 </Layout>
+
+<script>
+	const screen = document.getElementById('screen')!;
+	const history = document.getElementById('history')!;
+	const input = document.getElementById('cmd-input') as HTMLInputElement;
+	const PROMPT = 'povilas.dronovas@arch:~$';
+	const manHTML = document.getElementById('man-content')!.outerHTML;
+
+	const FILES: Record<string, string> = {
+		'skills.txt': [
+			'playwright        ████████████████████ expert',
+			'typescript        ████████████████░░░░ advanced',
+			'api-testing       ███████████████░░░░░ advanced',
+			'ci-cd             ██████████████░░░░░░ solid',
+			'neovim            ████░░░░░░░░░░░░░░░░ btw',
+		].join('\n'),
+		'contact.txt': [
+			"email:  [redacted] — run 'reveal-email'",
+			'github: github.com/DronovasP',
+		].join('\n'),
+	};
+
+	// email as char codes shifted by +1, so the address never appears
+	// as a string in the source, the DOM, or the served JS
+	const EMAIL_CODES = [
+		113, 112, 119, 106, 109, 98, 116, 47, 101, 115, 112, 111, 112, 119, 98, 116, 65, 104, 110,
+		98, 106, 109, 47, 100, 112, 110,
+	];
+	const emailStr = () => String.fromCharCode(...EMAIL_CODES.map((c) => c - 1));
+
+	function emailCanvas(): HTMLCanvasElement {
+		const text = emailStr();
+		const font = getComputedStyle(screen).fontSize + ' ui-monospace, Menlo, monospace';
+		const lineH = Math.round(parseFloat(getComputedStyle(screen).fontSize) * 1.4);
+		const canvas = document.createElement('canvas');
+		const ctx = canvas.getContext('2d')!;
+		ctx.font = font;
+		const w = Math.ceil(ctx.measureText(text).width) + 2;
+		const dpr = window.devicePixelRatio || 1;
+		canvas.width = w * dpr;
+		canvas.height = lineH * dpr;
+		canvas.style.width = w + 'px';
+		canvas.style.height = lineH + 'px';
+		canvas.className = 'email-canvas';
+		canvas.title = 'click to copy';
+		ctx.scale(dpr, dpr);
+		ctx.font = font;
+		ctx.textBaseline = 'middle';
+		ctx.fillStyle = '#7dcfff';
+		ctx.fillText(text, 1, lineH / 2 + 1);
+		canvas.addEventListener('click', (e) => {
+			e.stopPropagation();
+			navigator.clipboard?.writeText(emailStr());
+			canvas.title = 'copied!';
+		});
+		return canvas;
+	}
+
+	function print(text: string) {
+		const pre = document.createElement('pre');
+		pre.className = 'out';
+		pre.textContent = text;
+		history.appendChild(pre);
+	}
+
+	function printHTML(html: string) {
+		const div = document.createElement('div');
+		div.innerHTML = html;
+		history.appendChild(div);
+	}
+
+	function echoCmd(raw: string) {
+		const p = document.createElement('p');
+		p.className = 'cmd';
+		const s = document.createElement('span');
+		s.className = 'prompt';
+		s.textContent = PROMPT;
+		p.append(s, ' ' + raw);
+		history.appendChild(p);
+	}
+
+	const commands: Record<string, (args: string[]) => void> = {
+		help: () =>
+			print(
+				[
+					'available commands:',
+					'  man povilas.dronovas   read the manual',
+					'  ls                     list files',
+					'  cat <file>             print file contents',
+					'  whoami                 print effective user',
+					'  pwd                    print working directory',
+					'  echo <text>            display a line of text',
+					'  date                   print the current date',
+					'  reveal-email           show contact email (scraper-proof)',
+					'  clear                  clear the terminal (or Ctrl+L)',
+					'  help                   show this message',
+				].join('\n'),
+			),
+		man: (args) => {
+			if (!args.length)
+				return print("What manual page do you want?\nFor example, try 'man povilas.dronovas'.");
+			if (args[0] === 'povilas.dronovas' || args[0] === 'povilas') return printHTML(manHTML);
+			print(`No manual entry for ${args[0]}`);
+		},
+		ls: () => print(Object.keys(FILES).join('  ')),
+		cat: (args) => {
+			if (!args.length) return print('cat: missing file operand');
+			print(FILES[args[0]] ?? `cat: ${args[0]}: No such file or directory`);
+		},
+		whoami: () => print('povilas.dronovas'),
+		pwd: () => print('/home/povilas.dronovas'),
+		echo: (args) => print(args.join(' ')),
+		date: () => print(new Date().toString()),
+		clear: () => {
+			history.innerHTML = '';
+		},
+		'reveal-email': () => {
+			const p = document.createElement('p');
+			p.className = 'out';
+			p.append('email:  ', emailCanvas());
+			history.appendChild(p);
+		},
+		sudo: () =>
+			print('povilas.dronovas is not in the sudoers file. This incident will be reported.'),
+		vim: () => print("Opening real editor... just kidding. Try 'man povilas.dronovas'."),
+		exit: () => print('logout\nNice try. This is a portfolio, there is no escape.'),
+	};
+	commands.nvim = commands.vim;
+	commands.vi = commands.vim;
+
+	function run(raw: string) {
+		echoCmd(raw);
+		const t = raw.trim();
+		if (t) {
+			const [cmd, ...args] = t.split(/\s+/);
+			const fn = commands[cmd] ?? (() => print(`command not found: ${cmd} (try 'help')`));
+			fn(args);
+		}
+		screen.scrollTop = screen.scrollHeight;
+	}
+
+	const cmdHistory: string[] = [];
+	let histIdx = 0;
+
+	input.addEventListener('keydown', (e) => {
+		if (e.key === 'Enter') {
+			const value = input.value;
+			if (value.trim()) cmdHistory.push(value);
+			histIdx = cmdHistory.length;
+			input.value = '';
+			run(value);
+		} else if (e.key === 'ArrowUp') {
+			e.preventDefault();
+			if (histIdx > 0) input.value = cmdHistory[--histIdx];
+		} else if (e.key === 'ArrowDown') {
+			e.preventDefault();
+			if (histIdx < cmdHistory.length - 1) {
+				input.value = cmdHistory[++histIdx];
+			} else {
+				histIdx = cmdHistory.length;
+				input.value = '';
+			}
+		} else if (e.key === 'l' && e.ctrlKey) {
+			e.preventDefault();
+			commands.clear([]);
+		}
+	});
+
+	history.addEventListener('click', (e) => {
+		const btn = (e.target as HTMLElement).closest('.reveal');
+		if (btn) {
+			e.stopPropagation();
+			btn.replaceWith(emailCanvas());
+		}
+	});
+
+	screen.addEventListener('click', () => {
+		if (!window.getSelection()?.toString()) input.focus();
+	});
+	input.focus();
+</script>
+
+<style is:global>
+	main {
+		height: 100dvh;
+		display: grid;
+		place-items: center;
+		padding: clamp(0.5rem, 2vh, 2rem);
+		background: radial-gradient(80rem 50rem at 50% -20%, #24283b, transparent), #16161e;
+	}
+
+	.terminal {
+		display: flex;
+		flex-direction: column;
+		width: min(64rem, 100%);
+		height: 100%;
+		border-radius: 10px;
+		overflow: hidden;
+		background: #1a1b26;
+		border: 1px solid #ffffff14;
+		box-shadow: 0 25px 60px -15px #000000cc;
+	}
+
+	.titlebar {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		flex: none;
+		padding: 0.6rem 0.9rem;
+		background: #16161e;
+		border-bottom: 1px solid #ffffff0f;
+	}
+
+	.dot {
+		width: 0.75rem;
+		height: 0.75rem;
+		border-radius: 50%;
+	}
+	.red { background: #f7768e; }
+	.yellow { background: #e0af68; }
+	.green { background: #9ece6a; }
+
+	.title {
+		margin-left: 0.5rem;
+		font-family: ui-monospace, 'JetBrains Mono', 'Fira Code', Menlo, monospace;
+		font-size: 0.75rem;
+		color: #565f89;
+	}
+
+	.screen {
+		flex: 1;
+		overflow-y: auto; /* output scrolls inside the terminal; the page never scrolls */
+		padding: clamp(0.75rem, 2vh, 1.5rem) clamp(0.9rem, 3vw, 2rem);
+		font-family: ui-monospace, 'JetBrains Mono', 'Fira Code', Menlo, monospace;
+		font-size: clamp(0.625rem, 1.75vh, 0.875rem);
+		line-height: 1.4;
+		color: #c0caf5;
+	}
+
+	.cmd {
+		margin: 0 0 0.75em;
+		color: #c0caf5;
+	}
+
+	.prompt {
+		color: #9ece6a;
+		font-weight: 700;
+	}
+
+	.man-header {
+		display: flex;
+		justify-content: space-between;
+		margin-bottom: 0.75em;
+		color: #565f89;
+	}
+
+	h2 {
+		margin: 0.55em 0 0.15em;
+		font-size: 1em;
+		font-weight: 700;
+		letter-spacing: 0.05em;
+		color: #e0af68;
+	}
+
+	.indent {
+		margin: 0 0 0.35em;
+		padding-left: 2.5ch;
+	}
+
+	b {
+		color: #7dcfff;
+	}
+
+	.flag {
+		color: #bb9af7;
+	}
+
+	.synopsis {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0 1ch;
+	}
+
+	.synopsis .flag {
+		white-space: nowrap;
+	}
+
+	.option .indent {
+		margin-bottom: 0;
+	}
+
+	.option-desc {
+		margin: 0 0 0.3em;
+		padding-left: 6ch;
+		color: #a9b1d6;
+	}
+
+	a {
+		color: #7dcfff;
+	}
+
+	.hint {
+		margin: 0.75em 0 0;
+		color: #565f89;
+	}
+
+	.out {
+		margin: 0 0 0.75em;
+		font: inherit;
+		white-space: pre-wrap;
+		word-break: break-word;
+		color: #a9b1d6;
+	}
+
+	.reveal {
+		padding: 0;
+		background: none;
+		border: none;
+		font: inherit;
+		color: #7dcfff;
+		text-decoration: underline dotted;
+		cursor: pointer;
+	}
+
+	.reveal:hover {
+		color: #b4e1ff;
+	}
+
+	.email-canvas {
+		vertical-align: middle;
+		cursor: copy;
+	}
+
+	.input-line {
+		display: flex;
+		align-items: baseline;
+		gap: 1ch;
+		margin: 0;
+	}
+
+	.input-line input {
+		flex: 1;
+		min-width: 2ch;
+		padding: 0;
+		background: none;
+		border: none;
+		outline: none;
+		font: inherit;
+		color: inherit;
+		caret-color: #c0caf5;
+	}
+
+	@media (max-width: 640px) {
+		.indent {
+			padding-left: 1.5ch;
+		}
+		.option-desc {
+			padding-left: 3.5ch;
+		}
+	}
+</style>
